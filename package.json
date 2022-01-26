@@ -1,0 +1,24 @@
+{
+  "name": "bate-papo-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JefersonBatista/bate-papo-api.git"
+  },
+  "author": "JefersonBatista",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JefersonBatista/bate-papo-api/issues"
+  },
+  "homepage": "https://github.com/JefersonBatista/bate-papo-api#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.2"
+  }
+}
