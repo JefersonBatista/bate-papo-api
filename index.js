@@ -74,8 +74,51 @@ app.get("/participants", async (req, res) => {
   }
 });
 
-app.post("/messages", (req, res) => {
-  res.send("Mock route to POST /messages");
+app.post("/messages", async (req, res) => {
+  const newMessage = req.body;
+  const { to, text, type } = newMessage;
+
+  const { user: from } = req.headers;
+  newMessage.from = from;
+  newMessage.time = dayjs().format("HH:mm:ss");
+
+  if (!to || isEmptyString(to)) {
+    res.status(422).send("Insira um destinatário não vazio!");
+    return;
+  }
+
+  if (!text || isEmptyString(text)) {
+    res.status(422).send("Insira uma mensagem não vazia!");
+    return;
+  }
+
+  if (!type || !isValidMessageType(type)) {
+    res.status(422).send("O tipo de mensagem deve ser válido");
+    return;
+  }
+
+  try {
+    await dbClient.connect();
+
+    const batePapoDatabase = dbClient.db("bate-papo");
+
+    const participantsCollection = batePapoDatabase.collection("participants");
+
+    const participants = await participantsCollection.find().toArray();
+
+    if (!participants.find((participant) => participant.name === from)) {
+      res.status(422).send("Você não está participando do chat!");
+      return;
+    }
+
+    const messagesCollection = batePapoDatabase.collection("messages");
+
+    messagesCollection.insertOne(newMessage);
+
+    res.sendStatus(201);
+  } catch (_) {
+    res.status(500).send("Houve um erro interno no servidor");
+  }
 });
 
 app.get("/messages", (req, res) => {
