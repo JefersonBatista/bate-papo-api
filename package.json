@@ -19,6 +19,7 @@
   "homepage": "https://github.com/JefersonBatista/bate-papo-api#readme",
   "dependencies": {
     "cors": "^2.8.5",
+    "dayjs": "^1.10.7",
     "dotenv": "^14.3.2",
     "express": "^4.17.2",
     "mongodb": "^4.3.1"
