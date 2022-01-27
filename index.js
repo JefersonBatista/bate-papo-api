@@ -24,6 +24,12 @@ function hasAccessToMessage(user, message) {
 
 const dbClient = new MongoClient(process.env.MONGO_URI);
 
+function closeDatabaseConnection() {
+  if (dbClient) {
+    dbClient.close();
+  }
+}
+
 const app = express();
 app.use(cors());
 app.use(json());
@@ -67,6 +73,8 @@ app.post("/participants", async (req, res) => {
     res.sendStatus(201);
   } catch (_) {
     res.status(500).send("Houve um erro interno no servidor");
+  } finally {
+    closeDatabaseConnection();
   }
 });
 
@@ -83,6 +91,8 @@ app.get("/participants", async (req, res) => {
     res.status(200).send(participants);
   } catch (_) {
     res.status(500).send("Houve um erro interno no servidor");
+  } finally {
+    closeDatabaseConnection();
   }
 });
 
@@ -125,11 +135,13 @@ app.post("/messages", async (req, res) => {
 
     const messagesCollection = batePapoDatabase.collection("messages");
 
-    messagesCollection.insertOne(newMessage);
+    await messagesCollection.insertOne(newMessage);
 
     res.sendStatus(201);
   } catch (_) {
     res.status(500).send("Houve um erro interno no servidor");
+  } finally {
+    closeDatabaseConnection();
   }
 });
 
@@ -158,6 +170,8 @@ app.get("/messages", async (req, res) => {
     res.status(200).send(lastMessages);
   } catch (_) {
     res.status(500).send("Houve um erro interno no servidor");
+  } finally {
+    closeDatabaseConnection();
   }
 });
 
