@@ -17,9 +17,9 @@ app.use(cors());
 app.use(json());
 
 app.post("/participants", async (req, res) => {
-  const participant = req.body;
-  const { name } = participant;
-  participant.lastStatus = Date.now();
+  const newParticipant = req.body;
+  const { name } = newParticipant;
+  newParticipant.lastStatus = Date.now();
 
   if (!name || isEmptyString(name)) {
     res.status(422).send("Insira um nome não vazio!");
@@ -40,7 +40,7 @@ app.post("/participants", async (req, res) => {
       return;
     }
 
-    await participantsCollection.insertOne(participant);
+    await participantsCollection.insertOne(newParticipant);
 
     const messagesCollection = batePapoDatabase.collection("messages");
 
@@ -58,8 +58,20 @@ app.post("/participants", async (req, res) => {
   }
 });
 
-app.get("/participants", (req, res) => {
-  res.send("Mock route to GET /participants");
+app.get("/participants", async (req, res) => {
+  try {
+    await dbClient.connect();
+
+    const batePapoDatabase = dbClient.db("bate-papo");
+
+    const participantsCollection = batePapoDatabase.collection("participants");
+
+    const participants = await participantsCollection.find().toArray();
+
+    res.status(200).send(participants.map((participant) => participant.name));
+  } catch (_) {
+    res.status(500).send("Houve um erro interno no servidor");
+  }
 });
 
 app.post("/messages", (req, res) => {
