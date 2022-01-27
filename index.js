@@ -10,6 +10,18 @@ function isEmptyString(str) {
   return !Boolean(str.trim());
 }
 
+function isValidMessageType(type) {
+  return type === "message" || type === "private_message";
+}
+
+function hasAccessToMessage(user, message) {
+  const { type, from, to } = message;
+
+  return (
+    type === "status" || type === "message" || from === user || to === user
+  );
+}
+
 const dbClient = new MongoClient(process.env.MONGO_URI);
 
 const app = express();
@@ -68,7 +80,7 @@ app.get("/participants", async (req, res) => {
 
     const participants = await participantsCollection.find().toArray();
 
-    res.status(200).send(participants.map((participant) => participant.name));
+    res.status(200).send(participants);
   } catch (_) {
     res.status(500).send("Houve um erro interno no servidor");
   }
@@ -121,14 +133,38 @@ app.post("/messages", async (req, res) => {
   }
 });
 
-app.get("/messages", (req, res) => {
-  res.send("Mock route to GET /messages");
+app.get("/messages", async (req, res) => {
+  const { user } = req.headers;
+  const limit = parseInt(req.query.limit);
+
+  try {
+    await dbClient.connect();
+
+    const batePapoDatabase = dbClient.db("bate-papo");
+
+    const messagesCollection = batePapoDatabase.collection("messages");
+
+    const messages = await messagesCollection.find().toArray();
+
+    const filteredMessages = messages.filter((message) =>
+      hasAccessToMessage(user, message)
+    );
+
+    const lastMessages =
+      limit && limit > 0
+        ? filteredMessages.slice(-parseInt(limit))
+        : filteredMessages;
+
+    res.status(200).send(lastMessages);
+  } catch (_) {
+    res.status(500).send("Houve um erro interno no servidor");
+  }
 });
 
 app.post("/status", (req, res) => {
   res.send("Mock route to POST /status");
 });
 
-app.listen(4000, () => {
-  console.log("Rodando em http://localhost:4000");
+app.listen(5000, () => {
+  console.log("Rodando em http://localhost:5000");
 });
