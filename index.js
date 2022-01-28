@@ -3,15 +3,7 @@ import cors from "cors";
 import dayjs from "dayjs";
 
 import { connectToDatabase, closeDatabaseConnection } from "./dbClient.js";
-import { participantSchema } from "./schemas.js";
-
-function isEmptyString(str) {
-  return !str.trim();
-}
-
-function isValidMessageType(type) {
-  return type === "message" || type === "private_message";
-}
+import { participantSchema, getMessageSchema } from "./schemas.js";
 
 function hasAccessToMessage(user, message) {
   const { type, from, to } = message;
@@ -95,26 +87,9 @@ app.get("/participants", async (req, res) => {
 
 app.post("/messages", async (req, res) => {
   const newMessage = req.body;
-  const { to, text, type } = newMessage;
 
   const { user: from } = req.headers;
   newMessage.from = from;
-  newMessage.time = dayjs().format("HH:mm:ss");
-
-  if (!to || isEmptyString(to)) {
-    res.status(422).send("Insira um destinatário não vazio!");
-    return;
-  }
-
-  if (!text || isEmptyString(text)) {
-    res.status(422).send("Insira uma mensagem não vazia!");
-    return;
-  }
-
-  if (!type || !isValidMessageType(type)) {
-    res.status(422).send("O tipo de mensagem deve ser válido");
-    return;
-  }
 
   let dbClient, database;
   try {
@@ -126,10 +101,17 @@ app.post("/messages", async (req, res) => {
 
     const participants = await participantsCollection.find().toArray();
 
-    if (!participants.find((participant) => participant.name === from)) {
-      res.status(422).send("Você não está participando do chat!");
+    const messageSchema = getMessageSchema(
+      participants.map((participant) => participant.name)
+    );
+
+    const validation = messageSchema.validate(newMessage);
+    if (validation.error) {
+      res.sendStatus(422);
       return;
     }
+
+    newMessage.time = dayjs().format("HH:mm:ss");
 
     const messagesCollection = database.collection("messages");
 
