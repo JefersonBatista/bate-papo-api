@@ -4,14 +4,9 @@ import dayjs from "dayjs";
 
 import { connectToDatabase, closeDatabaseConnection } from "./dbClient.js";
 import { participantSchema, getMessageSchema } from "./schemas.js";
+import { hasAccessToMessage, removeInactiveUsers } from "./utils.js";
 
-function hasAccessToMessage(user, message) {
-  const { type, from, to } = message;
-
-  return (
-    type === "status" || type === "message" || from === user || to === user
-  );
-}
+setInterval(removeInactiveUsers, 15000);
 
 const app = express();
 app.use(cors());
