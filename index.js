@@ -1,13 +1,12 @@
 import express, { json } from "express";
 import cors from "cors";
-import { MongoClient } from "mongodb";
-import dotenv from "dotenv";
 import dayjs from "dayjs";
 
-dotenv.config();
+import { connectToDatabase, closeDatabaseConnection } from "./dbClient.js";
+import { participantSchema } from "./schemas.js";
 
 function isEmptyString(str) {
-  return !Boolean(str.trim());
+  return !str.trim();
 }
 
 function isValidMessageType(type) {
@@ -22,14 +21,6 @@ function hasAccessToMessage(user, message) {
   );
 }
 
-const dbClient = new MongoClient(process.env.MONGO_URI);
-
-function closeDatabaseConnection() {
-  if (dbClient) {
-    dbClient.close();
-  }
-}
-
 const app = express();
 app.use(cors());
 app.use(json());
@@ -37,19 +28,22 @@ app.use(json());
 app.post("/participants", async (req, res) => {
   const newParticipant = req.body;
   const { name } = newParticipant;
-  newParticipant.lastStatus = Date.now();
 
-  if (!name || isEmptyString(name)) {
+  const validation = participantSchema.validate(newParticipant);
+  if (validation.error) {
     res.status(422).send("Insira um nome não vazio!");
     return;
   }
 
+  newParticipant.lastStatus = Date.now();
+
+  let dbClient, database;
   try {
-    await dbClient.connect();
+    const databaseConnection = await connectToDatabase();
+    dbClient = databaseConnection.dbClient;
+    database = databaseConnection.database;
 
-    const batePapoDatabase = dbClient.db("bate-papo");
-
-    const participantsCollection = batePapoDatabase.collection("participants");
+    const participantsCollection = database.collection("participants");
 
     const participants = await participantsCollection.find().toArray();
 
@@ -60,7 +54,7 @@ app.post("/participants", async (req, res) => {
 
     await participantsCollection.insertOne(newParticipant);
 
-    const messagesCollection = batePapoDatabase.collection("messages");
+    const messagesCollection = database.collection("messages");
 
     await messagesCollection.insertOne({
       from: name,
@@ -71,28 +65,31 @@ app.post("/participants", async (req, res) => {
     });
 
     res.sendStatus(201);
-  } catch (_) {
+  } catch (error) {
+    console.log(error);
     res.status(500).send("Houve um erro interno no servidor");
   } finally {
-    closeDatabaseConnection();
+    closeDatabaseConnection(dbClient);
   }
 });
 
 app.get("/participants", async (req, res) => {
+  let dbClient, database;
   try {
-    await dbClient.connect();
+    const databaseConnection = await connectToDatabase();
+    dbClient = databaseConnection.dbClient;
+    database = databaseConnection.database;
 
-    const batePapoDatabase = dbClient.db("bate-papo");
-
-    const participantsCollection = batePapoDatabase.collection("participants");
+    const participantsCollection = database.collection("participants");
 
     const participants = await participantsCollection.find().toArray();
 
     res.status(200).send(participants);
-  } catch (_) {
+  } catch (error) {
+    console.log(error);
     res.status(500).send("Houve um erro interno no servidor");
   } finally {
-    closeDatabaseConnection();
+    closeDatabaseConnection(dbClient);
   }
 });
 
@@ -119,12 +116,13 @@ app.post("/messages", async (req, res) => {
     return;
   }
 
+  let dbClient, database;
   try {
-    await dbClient.connect();
+    const databaseConnection = await connectToDatabase();
+    dbClient = databaseConnection.dbClient;
+    database = databaseConnection.database;
 
-    const batePapoDatabase = dbClient.db("bate-papo");
-
-    const participantsCollection = batePapoDatabase.collection("participants");
+    const participantsCollection = database.collection("participants");
 
     const participants = await participantsCollection.find().toArray();
 
@@ -133,15 +131,16 @@ app.post("/messages", async (req, res) => {
       return;
     }
 
-    const messagesCollection = batePapoDatabase.collection("messages");
+    const messagesCollection = database.collection("messages");
 
     await messagesCollection.insertOne(newMessage);
 
     res.sendStatus(201);
-  } catch (_) {
+  } catch (error) {
+    console.log(error);
     res.status(500).send("Houve um erro interno no servidor");
   } finally {
-    closeDatabaseConnection();
+    closeDatabaseConnection(dbClient);
   }
 });
 
@@ -149,12 +148,13 @@ app.get("/messages", async (req, res) => {
   const { user } = req.headers;
   const limit = parseInt(req.query.limit);
 
+  let dbClient, database;
   try {
-    await dbClient.connect();
+    const databaseConnection = await connectToDatabase();
+    dbClient = databaseConnection.dbClient;
+    database = databaseConnection.database;
 
-    const batePapoDatabase = dbClient.db("bate-papo");
-
-    const messagesCollection = batePapoDatabase.collection("messages");
+    const messagesCollection = database.collection("messages");
 
     const messages = await messagesCollection.find().toArray();
 
@@ -168,10 +168,11 @@ app.get("/messages", async (req, res) => {
         : filteredMessages;
 
     res.status(200).send(lastMessages);
-  } catch (_) {
+  } catch (error) {
+    console.log(error);
     res.status(500).send("Houve um erro interno no servidor");
   } finally {
-    closeDatabaseConnection();
+    closeDatabaseConnection(dbClient);
   }
 });
 
