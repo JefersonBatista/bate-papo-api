@@ -58,7 +58,7 @@ app.post("/participants", async (req, res) => {
 
     res.sendStatus(201);
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).send("Houve um erro interno no servidor");
   } finally {
     closeDatabaseConnection(dbClient);
@@ -78,7 +78,7 @@ app.get("/participants", async (req, res) => {
 
     res.status(200).send(participants);
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).send("Houve um erro interno no servidor");
   } finally {
     closeDatabaseConnection(dbClient);
@@ -119,7 +119,7 @@ app.post("/messages", async (req, res) => {
 
     res.sendStatus(201);
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).send("Houve um erro interno no servidor");
   } finally {
     closeDatabaseConnection(dbClient);
@@ -151,15 +151,40 @@ app.get("/messages", async (req, res) => {
 
     res.status(200).send(lastMessages);
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.status(500).send("Houve um erro interno no servidor");
   } finally {
     closeDatabaseConnection(dbClient);
   }
 });
 
-app.post("/status", (req, res) => {
-  res.send("Mock route to POST /status");
+app.post("/status", async (req, res) => {
+  const { user: username } = req.headers;
+
+  let dbClient, database;
+  try {
+    const databaseConnection = await connectToDatabase();
+    dbClient = databaseConnection.dbClient;
+    database = databaseConnection.database;
+
+    const participantsCollection = database.collection("participants");
+
+    const user = await participantsCollection.findOne({ name: username });
+    if (!user) {
+      res.status(404).send("Você não está cadastrado");
+      return;
+    }
+
+    user.lastStatus = Date.now();
+    await participantsCollection.updateOne({ name: username }, { $set: user });
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Houve um erro interno no servidor");
+  } finally {
+    closeDatabaseConnection(dbClient);
+  }
 });
 
 app.listen(5000, () => {
