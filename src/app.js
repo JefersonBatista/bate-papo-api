@@ -2,7 +2,11 @@ import express, { json } from "express";
 import cors from "cors";
 import dayjs from "dayjs";
 
-import { connectToDatabase, closeDatabaseConnection } from "./dbClient.js";
+import {
+  connectToDatabase,
+  closeDatabaseConnection,
+  getObjectId,
+} from "./dbClient.js";
 import { participantSchema, getMessageSchema } from "./schemas.js";
 import { hasAccessToMessage, removeInactiveUsers } from "./utils.js";
 
@@ -172,6 +176,43 @@ app.post("/status", async (req, res) => {
 
     user.lastStatus = Date.now();
     await participantsCollection.updateOne({ name: username }, { $set: user });
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Houve um erro interno no servidor");
+  } finally {
+    closeDatabaseConnection(dbClient);
+  }
+});
+
+app.delete("/messages/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user } = req.headers;
+
+  let dbClient, database;
+  try {
+    const databaseConnection = await connectToDatabase();
+    dbClient = databaseConnection.dbClient;
+    database = databaseConnection.database;
+
+    const messagesCollection = database.collection("messages");
+
+    const message = await messagesCollection.findOne({ _id: getObjectId(id) });
+
+    if (!message) {
+      res.status(404).send("O identificador da mensagem é inválido");
+      return;
+    }
+
+    if (message.from !== user) {
+      res
+        .status(401)
+        .send("Você não tem autorização para deletar essa mensagem!");
+      return;
+    }
+
+    await messagesCollection.deleteOne({ _id: message._id });
 
     res.sendStatus(200);
   } catch (error) {

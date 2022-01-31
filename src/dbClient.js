@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -17,4 +17,8 @@ function closeDatabaseConnection(dbClient) {
   }
 }
 
-export { connectToDatabase, closeDatabaseConnection };
+function getObjectId(id) {
+  return new ObjectId(id);
+}
+
+export { connectToDatabase, closeDatabaseConnection, getObjectId };
