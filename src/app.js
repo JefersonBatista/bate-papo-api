@@ -158,7 +158,7 @@ app.get("/messages", async (req, res) => {
 });
 
 app.post("/status", async (req, res) => {
-  const { user: username } = req.headers;
+  const { user } = req.headers;
 
   let dbClient, database;
   try {
@@ -168,14 +168,75 @@ app.post("/status", async (req, res) => {
 
     const participantsCollection = database.collection("participants");
 
-    const user = await participantsCollection.findOne({ name: username });
-    if (!user) {
+    const participant = await participantsCollection.findOne({ name: user });
+    if (!participant) {
       res.status(404).send("Você não está cadastrado");
       return;
     }
 
-    user.lastStatus = Date.now();
-    await participantsCollection.updateOne({ name: username }, { $set: user });
+    await participantsCollection.updateOne(
+      { name: user },
+      { $set: { lastStatus: Date.now() } }
+    );
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Houve um erro interno no servidor");
+  } finally {
+    closeDatabaseConnection(dbClient);
+  }
+});
+
+app.put("/messages/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user } = req.headers;
+
+  const editedMessage = req.body;
+  editedMessage.from = user;
+
+  let dbClient, database;
+  try {
+    const databaseConnection = await connectToDatabase();
+    dbClient = databaseConnection.dbClient;
+    database = databaseConnection.database;
+
+    const participantsCollection = database.collection("participants");
+
+    const participants = await participantsCollection.find().toArray();
+
+    const messageSchema = getMessageSchema(
+      participants.map((participant) => participant.name)
+    );
+
+    const validation = messageSchema.validate(editedMessage);
+    if (validation.error) {
+      res.sendStatus(422);
+      return;
+    }
+
+    const messagesCollection = database.collection("messages");
+
+    const message = await messagesCollection.findOne({ _id: getObjectId(id) });
+
+    if (!message) {
+      res.status(404).send("O identificador da mensagem é inválido");
+      return;
+    }
+
+    if (message.from !== user) {
+      res
+        .status(401)
+        .send("Você não tem autorização para deletar essa mensagem!");
+      return;
+    }
+
+    editedMessage.time = dayjs().format("HH:mm:ss");
+
+    await messagesCollection.updateOne(
+      { _id: message._id },
+      { $set: editedMessage }
+    );
 
     res.sendStatus(200);
   } catch (error) {
