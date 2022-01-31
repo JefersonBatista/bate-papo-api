@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { stripHtml } from "string-strip-html";
 
 import { connectToDatabase, closeDatabaseConnection } from "./dbClient.js";
 
@@ -47,4 +48,8 @@ async function removeInactiveUsers() {
   }
 }
 
-export { hasAccessToMessage, removeInactiveUsers };
+function sanitizeText(text) {
+  return stripHtml(text.trim()).result;
+}
+
+export { hasAccessToMessage, removeInactiveUsers, sanitizeText };

@@ -8,7 +8,11 @@ import {
   getObjectId,
 } from "./dbClient.js";
 import { participantSchema, getMessageSchema } from "./schemas.js";
-import { hasAccessToMessage, removeInactiveUsers } from "./utils.js";
+import {
+  hasAccessToMessage,
+  removeInactiveUsers,
+  sanitizeText,
+} from "./utils.js";
 
 setInterval(removeInactiveUsers, 15000);
 
@@ -18,6 +22,7 @@ app.use(json());
 
 app.post("/participants", async (req, res) => {
   const newParticipant = req.body;
+  newParticipant.name = sanitizeText(newParticipant.name);
   const { name } = newParticipant;
 
   const validation = participantSchema.validate(newParticipant);
@@ -87,8 +92,13 @@ app.get("/participants", async (req, res) => {
 app.post("/messages", async (req, res) => {
   const newMessage = req.body;
 
-  const { user: from } = req.headers;
-  newMessage.from = from;
+  const { user } = req.headers;
+  newMessage.from = user;
+
+  newMessage.from = sanitizeText(newMessage.from);
+  newMessage.to = sanitizeText(newMessage.to);
+  newMessage.text = sanitizeText(newMessage.text);
+  newMessage.type = sanitizeText(newMessage.type);
 
   let dbClient, database;
   try {
@@ -194,6 +204,11 @@ app.put("/messages/:id", async (req, res) => {
 
   const editedMessage = req.body;
   editedMessage.from = user;
+
+  editedMessage.from = sanitizeText(editedMessage.from);
+  editedMessage.to = sanitizeText(editedMessage.to);
+  editedMessage.text = sanitizeText(editedMessage.text);
+  editedMessage.type = sanitizeText(editedMessage.type);
 
   let dbClient, database;
   try {
